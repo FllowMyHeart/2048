@@ -11,14 +11,17 @@ const {
   QUEUE_PREFIX = 'dingtalk-queue/'
 } = process.env;
 
-if (!OSS_ACCESS_KEY_ID || !OSS_ACCESS_KEY_SECRET) {
-  console.error('缺少环境变量 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET');
+const missing = [];
+if (!OSS_ACCESS_KEY_ID) missing.push('OSS_ACCESS_KEY_ID');
+if (!OSS_ACCESS_KEY_SECRET) missing.push('OSS_ACCESS_KEY_SECRET');
+if (!DINGTALK_WEBHOOK) missing.push('DINGTALK_WEBHOOK');
+if (missing.length > 0) {
+  console.error('❌ 缺少 GitHub Secrets：', missing.join(', '));
+  console.error('请去 https://github.com/<你的用户名>/<仓库>/settings/secrets/actions 添加');
   process.exit(1);
 }
-if (!DINGTALK_WEBHOOK) {
-  console.error('缺少环境变量 DINGTALK_WEBHOOK');
-  process.exit(1);
-}
+console.log('✅ 所有 Secrets 已加载');
+console.log(`Region: ${OSS_REGION}, Bucket: ${OSS_BUCKET}, Queue: ${QUEUE_PREFIX}`);
 
 const client = new OSS({
   region: OSS_REGION,

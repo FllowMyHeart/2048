@@ -2,8 +2,8 @@ name: Dingtalk Relay
 
 on:
   schedule:
-    # 每 1 分钟执行一次（GitHub Actions 最快支持的间隔，实际可能延迟 1-15 分钟）
-    - cron: '* * * * *'
+    # 每 5 分钟执行一次（cron * * * * * 容易被 GitHub 视为滥用而忽略，5 分钟更稳定）
+    - cron: '*/5 * * * *'
   workflow_dispatch: # 允许手动触发
 
 concurrency:
