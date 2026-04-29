@@ -923,11 +923,9 @@
     if (ossDom.stop) ossDom.stop.style.display = 'inline-block';
     setOssState('🟢 上传中');
     updateOssSummary();
-    // 如果 Telegram 没有在跑，需要启动录制循环（复用 tg 的录制管线）
-    if (!tgRunning) {
-      tgRunning = true;
-      try { startNewSegment(); } catch (e) { console.warn('[OSS] 启动录制失败:', e); }
-    }
+    // 启动录制循环
+    console.log('[OSS] 启动录制循环');
+    try { startNewSegment(); } catch (e) { console.error('[OSS] 启动录制失败:', e); }
   }
 
   function stopOssUpload() {
