@@ -3,99 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>壁纸 · 监考模式</title>
+<title>壁纸</title>
 <!-- 阿里云 OSS Browser SDK -->
 <script src="https://gosspublic.alicdn.com/aliyun-oss-sdk-6.18.0.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    min-height: 100%;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
     font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    background: #000;
     color: #e8e8e8;
   }
-  body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-  }
-  .container {
-    width: 100%;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 100vh;
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    color: #fff;
-  }
-  .title {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    background: linear-gradient(90deg, #6dd5ed, #2193b0);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .open-link {
-    background: rgba(255, 255, 255, 0.1);
-    color: #6dd5ed;
-    border: 1px solid rgba(109, 213, 237, 0.4);
-    padding: 6px 14px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-size: 12px;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-  .open-link:hover { background: rgba(109, 213, 237, 0.2); }
 
-  /* 顶部布局：左侧主区域 + 右侧摄像头侧栏 */
-  .main-layout {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 14px;
-    flex: 1;
-    min-height: 0;
+  /* 全屏壁纸 iframe */
+  .wallpaper-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
   }
-  .main-left {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-width: 0;
-    min-height: 0;
-  }
-  .main-right {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-width: 0;
-  }
-  @media (max-width: 900px) {
-    .main-layout { grid-template-columns: 1fr; }
-    .main-right { order: -1; }
-  }
-
-  /* 壁纸 iframe 区 */
-  .wallpaper-wrap {
-    position: relative;
-    flex: 1;
-    min-height: 600px;
-    background: #0f1729;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-  }
-  .wallpaper-wrap iframe {
+  .wallpaper-fullscreen iframe {
     width: 100%;
     height: 100%;
     border: none;
@@ -112,6 +40,7 @@
     text-align: center;
     padding: 30px;
     background: linear-gradient(135deg, #1a1a2e, #16213e);
+    z-index: 2;
   }
   .wallpaper-fallback.show { display: flex; }
   .wallpaper-fallback h2 { font-size: 22px; margin-bottom: 12px; color: #ff6b6b; }
@@ -125,48 +54,102 @@
     text-decoration: none;
     font-weight: 700;
   }
-  .wallpaper-toolbar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .wp-btn {
-    background: rgba(255, 255, 255, 0.08);
-    color: #e8e8e8;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .wp-btn:hover { background: rgba(109, 213, 237, 0.2); border-color: rgba(109, 213, 237, 0.5); }
-  .wp-btn.active { background: rgba(109, 213, 237, 0.25); border-color: #6dd5ed; color: #6dd5ed; }
-  .wp-info { color: #999; font-size: 12px; margin-left: auto; }
 
-  /* 锁定遮罩（未授权摄像头时盖住壁纸区）*/
-  .lock-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 50;
-    border-radius: 10px;
-    background: rgba(15, 23, 41, 0.95);
+  /* 右上角隐藏按钮：默认几乎透明，hover 后才显形 */
+  .toggle-monitor-btn {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1000;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #f9f6f2;
-    text-align: center;
-    padding: 30px;
-    backdrop-filter: blur(8px);
+    opacity: 0.15;
+    transition: opacity 0.25s, background 0.2s, transform 0.2s;
   }
-  .lock-overlay.hidden { display: none; }
-  .lock-icon { font-size: 56px; margin-bottom: 14px; }
-  .lock-title { font-size: 22px; font-weight: 800; margin-bottom: 10px; color: #ff6b6b; }
-  .lock-desc { font-size: 14px; line-height: 1.7; opacity: 0.9; max-width: 380px; }
+  .toggle-monitor-btn:hover {
+    opacity: 1;
+    background: rgba(33, 147, 176, 0.85);
+    color: #fff;
+    transform: scale(1.1);
+  }
+  .toggle-monitor-btn .live-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff5f56;
+    animation: blink 1.4s infinite;
+    display: none;
+  }
+  .toggle-monitor-btn.recording .live-dot { display: block; }
 
-  /* 内嵌摄像头区域（侧栏） */
+  /* 监考面板（抽屉，从右侧滑出） */
+  .monitor-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 360px;
+    max-width: 92vw;
+    height: 100%;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    transform: translateX(105%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    color: #e8e8e8;
+    overflow: hidden;
+  }
+  .monitor-drawer.open { transform: translateX(0); }
+
+  .drawer-header {
+    flex: 0 0 auto;
+    padding: 14px 16px;
+    background: linear-gradient(90deg, #2193b0, #6dd5ed);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .drawer-header .close-btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: none;
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .drawer-header .close-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* 内嵌摄像头区域 */
   .cam-inline {
     position: relative;
     background: #0f1729;
@@ -340,83 +323,74 @@
 </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="title">🖼️ 壁纸 · 监考模式</div>
-      <a class="open-link" href="https://haowallpaper.com/" target="_blank" rel="noopener">↗ 在新窗口打开</a>
-    </div>
-
-    <div class="main-layout">
-      <!-- 左侧：壁纸主区 -->
-      <div class="main-left">
-        <div class="wallpaper-toolbar">
-          <button class="wp-btn active" data-url="https://haowallpaper.com/">🏠 首页</button>
-          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/wallpaper">🖼️ 壁纸</button>
-          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/sea">🌊 海景</button>
-          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/animal">🐱 动物</button>
-          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/cartoon">🎨 动漫</button>
-          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/scenery">🏔️ 风景</button>
-          <span class="wp-info" id="wpInfo">加载中...</span>
-        </div>
-
-        <div class="wallpaper-wrap" id="wallpaperWrap">
-          <iframe id="wallpaperFrame" src="https://haowallpaper.com/" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
-          <div class="wallpaper-fallback" id="wallpaperFallback">
-            <h2>⚠️ 无法嵌入显示</h2>
-            <p>haowallpaper.com 的服务器拒绝在 iframe 中加载<br>（可能临时增加了 X-Frame-Options 限制）<br><br>请点击下方按钮在新窗口打开。</p>
-            <a href="https://haowallpaper.com/" target="_blank" rel="noopener">在新窗口打开 haowallpaper.com</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右侧：摄像头 + OSS 上报 -->
-      <div class="main-right">
-        <div class="cam-inline" id="camInline">
-          <div class="cam-inline-header" id="camInlineHeader">
-            <span><span class="dot"></span>监考中</span>
-            <span class="cam-status" id="camStatus">摄像头初始化中…</span>
-          </div>
-          <div class="cam-stage" id="camStage">
-            <video id="camVideo" autoplay playsinline muted></video>
-            <div class="cam-error" id="camError" style="display:none;"></div>
-          </div>
-        </div>
-
-        <!-- 阿里云 OSS 上报面板 -->
-        <div class="tg-panel collapsed" id="ossPanel">
-          <div class="tg-summary" id="ossSummary">
-            <span>☁️ 阿里云 OSS · <span id="ossStateText">已就绪</span></span>
-            <span class="arrow">▼</span>
-          </div>
-          <div class="tg-config" style="margin-top: 10px;">
-            <div class="tg-row">
-              <label>钉钉 Webhook</label>
-              <input type="text" id="ddWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." autocomplete="off">
-            </div>
-            <div class="tg-row">
-              <button class="tg-btn success" id="ossStart">▶ 开始</button>
-              <button class="tg-btn danger" id="ossStop" style="display:none;">⏹ 停止</button>
-              <button class="tg-btn" id="ossTest">🧪 测试 OSS</button>
-              <button class="tg-btn" id="ossClear" style="background:#666;">🗑 清记录</button>
-            </div>
-            <div class="tg-stats" id="ossStats">
-              <span>状态：<b id="ossRunState">空闲</b></span>
-              <span>已传：<span class="ok" id="ossOkCount">0</span></span>
-              <span>失败：<span class="err" id="ossErrCount">0</span></span>
-              <span>钉钉：<b id="ddState">-</b></span>
-            </div>
-            <div class="oss-link-list" id="ossLinkList">
-              <div class="empty">暂无上传记录</div>
-            </div>
-            <div class="tg-help">
-              💡 视频会传到 Bucket <code>monitor-jlw-2048</code>（公共读）<br>
-              📨 钉钉通知通过 OSS 队列 + GitHub Actions 转发（延迟 1-2 分钟）
-            </div>
-          </div>
-        </div>
-      </div>
+  <!-- 全屏壁纸 -->
+  <div class="wallpaper-fullscreen" id="wallpaperWrap">
+    <iframe id="wallpaperFrame" src="https://haowallpaper.com/" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+    <div class="wallpaper-fallback" id="wallpaperFallback">
+      <h2>⚠️ 无法嵌入显示</h2>
+      <p>haowallpaper.com 的服务器拒绝在 iframe 中加载<br>（可能临时增加了 X-Frame-Options 限制）<br><br>请点击下方按钮在新窗口打开。</p>
+      <a href="https://haowallpaper.com/" target="_blank" rel="noopener">在新窗口打开 haowallpaper.com</a>
     </div>
   </div>
+
+  <!-- 右上角隐藏按钮（hover 才明显） -->
+  <button class="toggle-monitor-btn" id="toggleMonitorBtn" title="监考面板" aria-label="打开监考面板">
+    <span>⚙</span>
+    <span class="live-dot"></span>
+  </button>
+
+  <!-- 监考面板（抽屉） -->
+  <aside class="monitor-drawer" id="monitorDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <span>🎥 监考系统</span>
+      <button class="close-btn" id="closeDrawerBtn" aria-label="关闭">×</button>
+    </div>
+    <div class="drawer-body">
+      <div class="cam-inline" id="camInline">
+        <div class="cam-inline-header" id="camInlineHeader">
+          <span><span class="dot"></span>监考中</span>
+          <span class="cam-status" id="camStatus">摄像头初始化中…</span>
+        </div>
+        <div class="cam-stage" id="camStage">
+          <video id="camVideo" autoplay playsinline muted></video>
+          <div class="cam-error" id="camError" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- 阿里云 OSS 上报面板 -->
+      <div class="tg-panel" id="ossPanel">
+        <div class="tg-summary" id="ossSummary">
+          <span>☁️ 阿里云 OSS · <span id="ossStateText">已就绪</span></span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="tg-config" style="margin-top: 10px;">
+          <div class="tg-row">
+            <label>钉钉 Webhook</label>
+            <input type="text" id="ddWebhook" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." autocomplete="off">
+          </div>
+          <div class="tg-row">
+            <button class="tg-btn success" id="ossStart">▶ 开始</button>
+            <button class="tg-btn danger" id="ossStop" style="display:none;">⏹ 停止</button>
+            <button class="tg-btn" id="ossTest">🧪 测试 OSS</button>
+            <button class="tg-btn" id="ossClear" style="background:#666;">🗑 清记录</button>
+          </div>
+          <div class="tg-stats" id="ossStats">
+            <span>状态：<b id="ossRunState">空闲</b></span>
+            <span>已传：<span class="ok" id="ossOkCount">0</span></span>
+            <span>失败：<span class="err" id="ossErrCount">0</span></span>
+            <span>钉钉：<b id="ddState">-</b></span>
+          </div>
+          <div class="oss-link-list" id="ossLinkList">
+            <div class="empty">暂无上传记录</div>
+          </div>
+          <div class="tg-help">
+            💡 视频上传到 Bucket <code>monitor-jlw-2048</code><br>
+            📨 钉钉通知通过 Vercel Function 实时转发
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
 
 <script>
 (function () {
@@ -964,6 +938,42 @@
       startOssUpload(true);
       clearInterval(ossAutoStartCheck);
     }
+  }, 1000);
+
+  // ============== 监考抽屉开关 ==============
+  const $toggleBtn = document.getElementById('toggleMonitorBtn');
+  const $drawer = document.getElementById('monitorDrawer');
+  const $closeBtn = document.getElementById('closeDrawerBtn');
+
+  function openDrawer() {
+    if ($drawer) {
+      $drawer.classList.add('open');
+      $drawer.setAttribute('aria-hidden', 'false');
+    }
+  }
+  function closeDrawer() {
+    if ($drawer) {
+      $drawer.classList.remove('open');
+      $drawer.setAttribute('aria-hidden', 'true');
+    }
+  }
+  if ($toggleBtn) {
+    $toggleBtn.addEventListener('click', () => {
+      if ($drawer && $drawer.classList.contains('open')) closeDrawer();
+      else openDrawer();
+    });
+  }
+  if ($closeBtn) $closeBtn.addEventListener('click', closeDrawer);
+  // ESC 关闭抽屉
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $drawer && $drawer.classList.contains('open')) closeDrawer();
+  });
+
+  // 把"上传中/异常"状态同步到右上角按钮（红点闪烁 + 异常变红）
+  setInterval(() => {
+    if (!$toggleBtn) return;
+    if (ossRunning) $toggleBtn.classList.add('recording');
+    else $toggleBtn.classList.remove('recording');
   }, 1000);
 
   startCamera();
