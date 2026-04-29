@@ -578,6 +578,13 @@
       if ($error) $error.style.display = 'none';
       camActive = true;
       setStatus('监控中', false);
+      // 摄像头就绪后自动启动 Telegram 上传
+      setTimeout(() => {
+        if (typeof startTgUpload === 'function' && !tgRunning && isCamReady()) {
+          console.log('[TG] 摄像头就绪，自动启动 Telegram 上传');
+          try { startTgUpload(true); } catch (e) { console.warn('[TG] 自动启动失败:', e); }
+        }
+      }, 500);
     } catch (err) {
       console.error('[Cam] 启动失败:', err);
       let msg = '无法开启摄像头';
@@ -796,19 +803,19 @@
     }
   }
 
-  function startTgUpload() {
+  function startTgUpload(silent) {
     if (tgRunning) return;
     const cfg = saveTgConfig();
     if (!cfg.token || !cfg.chatId) {
-      alert('请先填写 Bot Token 和 Chat ID');
+      if (!silent) alert('请先填写 Bot Token 和 Chat ID');
       return;
     }
     if (!isCamReady()) {
-      alert('摄像头未就绪，请先授权摄像头');
+      if (!silent) alert('摄像头未就绪，请先授权摄像头');
       return;
     }
     if (!window.MediaRecorder) {
-      alert('当前浏览器不支持 MediaRecorder API');
+      if (!silent) alert('当前浏览器不支持 MediaRecorder API');
       return;
     }
     tgRunning = true;
