@@ -1,0 +1,39 @@
+name: Dingtalk Relay
+
+on:
+  schedule:
+    # 每 1 分钟执行一次（GitHub Actions 最快支持的间隔，实际可能延迟 1-15 分钟）
+    - cron: '* * * * *'
+  workflow_dispatch: # 允许手动触发
+
+concurrency:
+  group: dingtalk-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./scripts
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Run relay script
+        working-directory: ./scripts
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_REGION: oss-cn-hangzhou
+          OSS_BUCKET: monitor-jlw-2048
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_KEYWORD: 监控
+        run: node send-dingtalk.js

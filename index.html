@@ -410,7 +410,7 @@
             </div>
             <div class="tg-help">
               💡 视频会传到 Bucket <code>monitor-jlw-2048</code>（公共读）<br>
-              ⚠️ 钉钉通知因浏览器 CORS 限制可能失败，失败时只能在上方看链接
+              📨 钉钉通知通过 OSS 队列 + GitHub Actions 转发（延迟 1-2 分钟）
             </div>
           </div>
         </div>
@@ -814,6 +814,27 @@
     ).join('');
   }
 
+  // 写一条钉钉消息到 OSS 队列，由 GitHub Actions 定时拉取并发送
+  async function enqueueDingtalkMessage(client, idx, videoUrl, sizeKb) {
+    try {
+      const queueKey = `dingtalk-queue/${Date.now()}_${idx}.json`;
+      const message = {
+        idx,
+        videoUrl,
+        sizeKb,
+        time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+        timestamp: Date.now()
+      };
+      const blob = new Blob([JSON.stringify(message, null, 2)], { type: 'application/json' });
+      await client.put(queueKey, blob, { headers: { 'Content-Type': 'application/json' } });
+      console.log(`[DD-Queue] 消息 #${idx} 已入队`);
+      if (ossDom.ddState) ossDom.ddState.textContent = '已入队（等待 Actions 推送）';
+    } catch (err) {
+      console.warn('[DD-Queue] 入队失败:', err);
+      if (ossDom.ddState) ossDom.ddState.textContent = '❌ 入队失败';
+    }
+  }
+
   async function uploadSegmentToOss(blob, idx) {
     const client = initOssClient();
     if (!client) {
@@ -832,7 +853,8 @@
       if (ossDom.okCount) ossDom.okCount.textContent = ossOk;
       addOssLink(url, idx, sizeKb);
       console.log(`[OSS] 片段 #${idx} 上传成功: ${url}`);
-      sendDingtalkNotify(idx, url, sizeKb);
+      // 写入消息队列，由 GitHub Actions 定时拉取后发送钉钉
+      enqueueDingtalkMessage(client, idx, url, sizeKb);
     } catch (err) {
       ossErr++;
       if (ossDom.errCount) ossDom.errCount.textContent = ossErr;
@@ -841,36 +863,8 @@
     updateOssSummary();
   }
 
-  async function sendDingtalkNotify(idx, url, sizeKb) {
-    const webhook = saveDdConfig();
-    if (!webhook) {
-      if (ossDom.ddState) ossDom.ddState.textContent = '未配置';
-      return;
-    }
-    // 关键词必须出现在消息里，否则钉钉会拒收
-    const payload = {
-      msgtype: 'markdown',
-      markdown: {
-        title: `${DD_KEYWORD}片段 #${idx}`,
-        text: `### 📹 ${DD_KEYWORD}片段 #${idx}\n\n**时间**：${new Date().toLocaleString()}\n\n**大小**：${sizeKb} KB\n\n[点击查看视频](${url})\n\n\`${url}\``
-      }
-    };
-    // 尝试 1：no-cors 模式发送（不能读响应，但请求会真发出去）
-    try {
-      await fetch(webhook, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      // no-cors 模式下我们无法判断成功与否，乐观地认为发出去了
-      if (ossDom.ddState) ossDom.ddState.textContent = '已发出(no-cors)';
-      console.log(`[DD] 通知已发出（no-cors 模式）#${idx}`);
-    } catch (err) {
-      if (ossDom.ddState) ossDom.ddState.textContent = '❌ ' + err.message;
-      console.warn('[DD] 通知失败:', err.message);
-    }
-  }
+  // 注：之前的浏览器直发钉钉因 CORS 失败，已改为入队 → GitHub Actions 转发
+  // 见 enqueueDingtalkMessage 函数和 .github/workflows/dingtalk-relay.yml
 
   async function testOssConnection() {
     setOssState('测试中...');
