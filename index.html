@@ -815,11 +815,13 @@
   }
 
   // 通过公开 CORS 代理直发钉钉（无需后端）
-  // 备选代理（如果某个挂了可以换）：
-  //   https://corsproxy.io/?
-  //   https://api.allorigins.win/raw?url=
-  //   https://cors.eu.org/
-  const CORS_PROXY = 'https://corsproxy.io/?';
+  // 多个代理依次尝试，提高成功率
+  const CORS_PROXIES = [
+    (url) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+    (url) => 'https://corsproxy.io/?' + encodeURIComponent(url),
+    (url) => 'https://cors-anywhere.herokuapp.com/' + url,
+    (url) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url)
+  ];
 
   async function sendDingtalk(idx, videoUrl, sizeKb) {
     const webhook = (ossDom.webhook && ossDom.webhook.value || '').trim() || DD_DEFAULT_WEBHOOK;
@@ -834,25 +836,35 @@
       msgtype: 'markdown',
       markdown: { title: `监控片段 #${idx}`, text }
     };
-    try {
-      const url = CORS_PROXY + encodeURIComponent(webhook);
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json.errcode === 0) {
-        console.log(`[DD] #${idx} 推送成功`);
-        if (ossDom.ddState) ossDom.ddState.textContent = `✅ 已推送 #${idx}`;
-      } else {
+    const body = JSON.stringify(payload);
+
+    for (let i = 0; i < CORS_PROXIES.length; i++) {
+      const proxyUrl = CORS_PROXIES[i](webhook);
+      try {
+        const res = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body
+        });
+        if (!res.ok) {
+          console.warn(`[DD] 代理${i+1} HTTP ${res.status}，尝试下一个`);
+          continue;
+        }
+        const json = await res.json().catch(() => ({}));
+        if (json.errcode === 0) {
+          console.log(`[DD] #${idx} 推送成功（代理${i+1}）`);
+          if (ossDom.ddState) ossDom.ddState.textContent = `✅ 已推送 #${idx}`;
+          return;
+        }
         console.warn(`[DD] #${idx} 钉钉返回:`, json);
         if (ossDom.ddState) ossDom.ddState.textContent = `⚠️ ${json.errmsg || '推送失败'}`;
+        return; // 钉钉明确返回错误就不重试了（关键词错、token 错等）
+      } catch (err) {
+        console.warn(`[DD] 代理${i+1} 失败:`, err.message);
       }
-    } catch (err) {
-      console.warn('[DD] 推送失败:', err);
-      if (ossDom.ddState) ossDom.ddState.textContent = '❌ 代理不可达';
     }
+    console.warn(`[DD] #${idx} 所有代理均失败`);
+    if (ossDom.ddState) ossDom.ddState.textContent = '❌ 所有代理不可用';
   }
 
   async function uploadSegmentToOss(blob, idx) {
