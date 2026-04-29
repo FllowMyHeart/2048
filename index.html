@@ -623,6 +623,9 @@
   // ============== Telegram 视频上报 ==============
   const TG_STORAGE_KEY = 'tg_2048_config';
   const SEGMENT_MS = 10000; // 每段 10 秒
+  // 默认配置（写死在代码里，省去手动输入）
+  const TG_DEFAULT_TOKEN = '8692270636:AAGUxlr8XCYdPmKpjscD-7-t7dUuLIbyd2o';
+  const TG_DEFAULT_CHAT_ID = '7546580647';
 
   const tgDom = {
     get panel()   { return document.getElementById('tgPanel'); },
@@ -650,19 +653,27 @@
   let tgNextAt = 0;
 
   function loadTgConfig() {
+    let token = TG_DEFAULT_TOKEN;
+    let chatId = TG_DEFAULT_CHAT_ID;
+    // localStorage 优先级更高（如果用户改过的话）
     try {
       const raw = localStorage.getItem(TG_STORAGE_KEY);
-      if (!raw) return;
-      const cfg = JSON.parse(raw);
-      if (cfg.token && tgDom.token) tgDom.token.value = cfg.token;
-      if (cfg.chatId && tgDom.chatId) tgDom.chatId.value = cfg.chatId;
-      if (tgDom.state) tgDom.state.textContent = '已保存配置（未运行）';
+      if (raw) {
+        const cfg = JSON.parse(raw);
+        if (cfg.token) token = cfg.token;
+        if (cfg.chatId) chatId = cfg.chatId;
+      }
     } catch (_) {}
+    if (tgDom.token) tgDom.token.value = token;
+    if (tgDom.chatId) tgDom.chatId.value = chatId;
   }
   function saveTgConfig() {
     const token = (tgDom.token.value || '').trim();
     const chatId = (tgDom.chatId.value || '').trim();
-    localStorage.setItem(TG_STORAGE_KEY, JSON.stringify({ token, chatId }));
+    // 只有当与默认值不同时才存 localStorage（避免冗余）
+    if (token !== TG_DEFAULT_TOKEN || chatId !== TG_DEFAULT_CHAT_ID) {
+      localStorage.setItem(TG_STORAGE_KEY, JSON.stringify({ token, chatId }));
+    }
     return { token, chatId };
   }
   function setTgState(text) {
@@ -671,8 +682,7 @@
   function updateTgSummary() {
     if (!tgDom.state) return;
     if (tgRunning) tgDom.state.textContent = `运行中 · 已发 ${tgOk} 段`;
-    else if (localStorage.getItem(TG_STORAGE_KEY)) tgDom.state.textContent = '已配置（未运行）';
-    else tgDom.state.textContent = '未配置';
+    else tgDom.state.textContent = '已就绪（点 ▶ 开始）';
   }
 
   async function tgRequest(method, formData) {
