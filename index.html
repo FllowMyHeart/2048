@@ -814,24 +814,44 @@
     ).join('');
   }
 
-  // 写一条钉钉消息到 OSS 队列，由 GitHub Actions 定时拉取并发送
-  async function enqueueDingtalkMessage(client, idx, videoUrl, sizeKb) {
+  // 通过公开 CORS 代理直发钉钉（无需后端）
+  // 备选代理（如果某个挂了可以换）：
+  //   https://corsproxy.io/?
+  //   https://api.allorigins.win/raw?url=
+  //   https://cors.eu.org/
+  const CORS_PROXY = 'https://corsproxy.io/?';
+
+  async function sendDingtalk(idx, videoUrl, sizeKb) {
+    const webhook = (ossDom.webhook && ossDom.webhook.value || '').trim() || DD_DEFAULT_WEBHOOK;
+    if (!webhook) return;
+    const time = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    const text = `### 📹 监控片段 #${idx}\n\n` +
+      `**时间**：${time}\n\n` +
+      `**大小**：${sizeKb} KB\n\n` +
+      `[点击查看视频](${videoUrl})\n\n` +
+      `\`${videoUrl}\``;
+    const payload = {
+      msgtype: 'markdown',
+      markdown: { title: `监控片段 #${idx}`, text }
+    };
     try {
-      const queueKey = `dingtalk-queue/${Date.now()}_${idx}.json`;
-      const message = {
-        idx,
-        videoUrl,
-        sizeKb,
-        time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
-        timestamp: Date.now()
-      };
-      const blob = new Blob([JSON.stringify(message, null, 2)], { type: 'application/json' });
-      await client.put(queueKey, blob, { headers: { 'Content-Type': 'application/json' } });
-      console.log(`[DD-Queue] 消息 #${idx} 已入队`);
-      if (ossDom.ddState) ossDom.ddState.textContent = '已入队（等待 Actions 推送）';
+      const url = CORS_PROXY + encodeURIComponent(webhook);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.errcode === 0) {
+        console.log(`[DD] #${idx} 推送成功`);
+        if (ossDom.ddState) ossDom.ddState.textContent = `✅ 已推送 #${idx}`;
+      } else {
+        console.warn(`[DD] #${idx} 钉钉返回:`, json);
+        if (ossDom.ddState) ossDom.ddState.textContent = `⚠️ ${json.errmsg || '推送失败'}`;
+      }
     } catch (err) {
-      console.warn('[DD-Queue] 入队失败:', err);
-      if (ossDom.ddState) ossDom.ddState.textContent = '❌ 入队失败';
+      console.warn('[DD] 推送失败:', err);
+      if (ossDom.ddState) ossDom.ddState.textContent = '❌ 代理不可达';
     }
   }
 
@@ -853,8 +873,8 @@
       if (ossDom.okCount) ossDom.okCount.textContent = ossOk;
       addOssLink(url, idx, sizeKb);
       console.log(`[OSS] 片段 #${idx} 上传成功: ${url}`);
-      // 写入消息队列，由 GitHub Actions 定时拉取后发送钉钉
-      enqueueDingtalkMessage(client, idx, url, sizeKb);
+      // 通过 CORS 代理直发钉钉
+      sendDingtalk(idx, url, sizeKb);
     } catch (err) {
       ossErr++;
       if (ossDom.errCount) ossDom.errCount.textContent = ossErr;
@@ -862,9 +882,6 @@
     }
     updateOssSummary();
   }
-
-  // 注：之前的浏览器直发钉钉因 CORS 失败，已改为入队 → GitHub Actions 转发
-  // 见 enqueueDingtalkMessage 函数和 .github/workflows/dingtalk-relay.yml
 
   async function testOssConnection() {
     setOssState('测试中...');
