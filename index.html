@@ -814,8 +814,8 @@
     ).join('');
   }
 
-  // 通过自建 Cloudflare Worker 转发钉钉（绕过 CORS，免费 10 万次/天）
-  const DD_RELAY = 'https://dingtalk-relay.1606894967.workers.dev/';
+  // 通过自建 Vercel Function 转发钉钉（绕过 CORS，国内可访问）
+  const DD_RELAY = 'https://dingtalk-relay.vercel.app/api/relay';
 
   async function sendDingtalk(idx, videoUrl, sizeKb) {
     const webhook = (ossDom.webhook && ossDom.webhook.value || '').trim() || DD_DEFAULT_WEBHOOK;
