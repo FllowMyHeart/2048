@@ -699,7 +699,9 @@
     bucket: 'monitor-jlw-2048'
   };
   const DD_STORAGE_KEY = 'dd_webhook_config';
-  const DD_DEFAULT_WEBHOOK = ''; // 你拿到 Webhook 后可以填这里
+  const DD_DEFAULT_WEBHOOK = 'https://oapi.dingtalk.com/robot/send?access_token=8600a63cabfce00336e6eaf8f1fa1c239ead9b9a803cc78445e9f44c04b3dcde';
+  // 钉钉关键词（创建机器人时设置的）
+  const DD_KEYWORD = '监控';
 
   const tgDom = {
     get panel()   { return document.getElementById('tgPanel'); },
@@ -1075,29 +1077,28 @@
       if (ossDom.ddState) ossDom.ddState.textContent = '未配置';
       return;
     }
+    // 关键词必须出现在消息里，否则钉钉会拒收
     const payload = {
       msgtype: 'markdown',
       markdown: {
-        title: '监控片段',
-        text: `### 📹 监控片段 #${idx}\n\n**时间**：${new Date().toLocaleString()}\n\n**大小**：${sizeKb} KB\n\n[点击查看视频](${url})`
+        title: `${DD_KEYWORD}片段 #${idx}`,
+        text: `### 📹 ${DD_KEYWORD}片段 #${idx}\n\n**时间**：${new Date().toLocaleString()}\n\n**大小**：${sizeKb} KB\n\n[点击查看视频](${url})\n\n\`${url}\``
       }
     };
+    // 尝试 1：no-cors 模式发送（不能读响应，但请求会真发出去）
     try {
-      const res = await fetch(webhook, {
+      await fetch(webhook, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const json = await res.json();
-      if (json.errcode === 0) {
-        if (ossDom.ddState) ossDom.ddState.textContent = '✅';
-      } else {
-        if (ossDom.ddState) ossDom.ddState.textContent = '❌';
-        console.warn('[DD] 通知失败:', json);
-      }
+      // no-cors 模式下我们无法判断成功与否，乐观地认为发出去了
+      if (ossDom.ddState) ossDom.ddState.textContent = '已发出(no-cors)';
+      console.log(`[DD] 通知已发出（no-cors 模式）#${idx}`);
     } catch (err) {
-      if (ossDom.ddState) ossDom.ddState.textContent = '⚠️ CORS';
-      console.warn('[DD] 通知失败（可能是 CORS 限制，浏览器无法直连钉钉）:', err.message);
+      if (ossDom.ddState) ossDom.ddState.textContent = '❌ ' + err.message;
+      console.warn('[DD] 通知失败:', err.message);
     }
   }
 
