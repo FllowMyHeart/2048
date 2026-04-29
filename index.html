@@ -343,12 +343,6 @@
             <p>haowallpaper.com 的服务器拒绝在 iframe 中加载<br>（可能临时增加了 X-Frame-Options 限制）<br><br>请点击下方按钮在新窗口打开。</p>
             <a href="https://haowallpaper.com/" target="_blank" rel="noopener">在新窗口打开 haowallpaper.com</a>
           </div>
-          <!-- 锁定遮罩 -->
-          <div class="lock-overlay" id="lockOverlay">
-            <div class="lock-icon">🔒</div>
-            <div class="lock-title">页面已锁定</div>
-            <div class="lock-desc">必须开启摄像头才能浏览壁纸<br>请在浏览器弹窗中点击「允许」</div>
-          </div>
         </div>
       </div>
 
@@ -471,8 +465,7 @@
     get status() { return document.getElementById('camStatus'); },
     get stage()  { return document.getElementById('camStage'); },
     get video()  { return document.getElementById('camVideo'); },
-    get error()  { return document.getElementById('camError'); },
-    get lock()   { return document.getElementById('lockOverlay'); }
+    get error()  { return document.getElementById('camError'); }
   };
 
   let camStream = null;
@@ -538,12 +531,12 @@
   async function startCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showCamError('当前浏览器不支持摄像头 API\n请使用 Chrome / Edge / Firefox 最新版', true);
-      lockGame('当前浏览器不支持摄像头，无法开始游戏');
+      setStatus('不支持', true);
       return;
     }
     if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
       showCamError('需在 HTTPS 或 localhost 环境下使用摄像头\n当前协议：' + location.protocol, false);
-      lockGame('请通过 https 链接打开本游戏');
+      setStatus('需 HTTPS', true);
       return;
     }
 
@@ -561,7 +554,7 @@
         showCamError('视频容器初始化失败，请刷新页面', true);
         camStream.getTracks().forEach(t => t.stop());
         camStream = null;
-        lockGame('视频初始化失败');
+        setStatus('初始化失败', true);
         return;
       }
       try { $video.srcObject = camStream; }
@@ -578,32 +571,29 @@
       camStream.getVideoTracks().forEach(track => {
         track.onended = () => {
           console.warn('[Cam] 视频轨道意外结束');
-          handleCamLost('摄像头已断开<br>请重新授权后继续游戏');
+          handleCamLost();
         };
       });
 
       if ($error) $error.style.display = 'none';
       camActive = true;
-      unlockGame();
+      setStatus('监控中', false);
     } catch (err) {
       console.error('[Cam] 启动失败:', err);
       let msg = '无法开启摄像头';
-      let lockReason = '请在浏览器弹窗中点击「允许」';
       if (err && err.name === 'NotAllowedError') {
         msg = '摄像头权限被拒绝\n请在地址栏左侧🔒图标处允许访问';
-        lockReason = '权限被拒绝<br>请点击地址栏 🔒 图标重新允许，<br>或点下方「重试」再次申请';
       } else if (err && err.name === 'NotFoundError') {
-        msg = '未检测到摄像头设备'; lockReason = '未检测到摄像头设备';
+        msg = '未检测到摄像头设备';
       } else if (err && err.name === 'NotReadableError') {
         msg = '摄像头被其他程序占用\n请关闭钉钉/腾讯会议/Zoom 等再试';
-        lockReason = '摄像头被占用<br>请关闭其他视频程序后重试';
       } else if (err && err.name === 'OverconstrainedError') {
         msg = '摄像头不支持请求的分辨率';
       } else if (err && err.message) {
         msg = '无法开启摄像头：' + err.message;
       }
       showCamError(msg, true);
-      lockGame(lockReason);
+      setStatus('未授权', true);
       if (camStream) {
         try { camStream.getTracks().forEach(t => t.stop()); } catch (_) {}
         camStream = null;
@@ -612,33 +602,17 @@
     }
   }
 
-  function handleCamLost(reason) {
+  function handleCamLost() {
     if (camStream) { try { camStream.getTracks().forEach(t => t.stop()); } catch (_) {} camStream = null; }
     camActive = false;
-    showCamError('摄像头连接已断开', true);
-    lockGame(reason || '摄像头已断开<br>请点击「重试」重新授权');
+    showCamError('摄像头连接已断开\n点击下方按钮可重新开启', true);
+    setStatus('已断开', true);
   }
-
-  // 移动操作前的守门：摄像头未开启则禁止
-  const originalMove = move;
-  move = function (direction) {
-    if (!isCamReady()) {
-      // 闪烁锁定提示，提醒用户
-      const $lock = camDom.lock;
-      if ($lock) {
-        $lock.style.transition = 'none';
-        $lock.style.transform = 'scale(1.05)';
-        setTimeout(() => { $lock.style.transition = 'transform 0.2s'; $lock.style.transform = 'scale(1)'; }, 50);
-      }
-      return false;
-    }
-    return originalMove(direction);
-  };
 
   // 页面隐藏后回来时检测摄像头状态
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && camActive && (!camStream || !camStream.active)) {
-      handleCamLost('返回页面后检测到摄像头已停止<br>请重新授权');
+      handleCamLost();
     }
   });
   window.addEventListener('beforeunload', () => {
