@@ -788,8 +788,10 @@
     ).join('');
   }
 
-  // 通过阿里云函数计算 FC 转发钉钉（国内访问稳定，永久免费）
-  const DD_RELAY = 'https://dingtalk-relay-xavicqvmfp.cn-beijing.fcapp.run/';
+  // 通过腾讯云 SCF 函数 URL 转发钉钉（国内访问稳定，永久免费 100 万次/月）
+  const DD_RELAY = 'https://1306379122-83okkup1y6.ap-shanghai.tencentscf.com';
+  // 备用：阿里云函数计算 FC（已弃用，按 vCPU·秒收费有最低消费）
+  // const DD_RELAY = 'https://dingtalk-relay-xavicqvmfp.cn-beijing.fcapp.run/';
 
   async function sendDingtalk(idx, videoUrl, sizeKb) {
     const webhook = (ossDom.webhook && ossDom.webhook.value || '').trim() || DD_DEFAULT_WEBHOOK;
